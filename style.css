@@ -1,0 +1,194 @@
+@import "leaflet/dist/leaflet.css";
+
+
+:root {
+    --primary: #3a86ff;
+    --background: #f1f1f1;
+    --font: 'Segoe UI', sans-serif;
+  }
+  
+  body {
+    font-family: var(--font);
+    margin: 0;
+    background-color: var(--background);
+  }
+  
+  header, main, footer {
+    padding: 1rem;
+    max-width: 800px;
+    margin: auto;
+  }
+  
+  header {
+    background: var(--primary);
+    color: white;
+    text-align: center;
+  }
+  
+  nav a {
+    margin: 0 10px;
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    z-index: 100;
+  }
+  
+  .skip-link:focus {
+    top: 0;
+  }
+  
+  .card {
+    background: white;
+    margin: 1rem 0;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  
+  .card img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+  }
+  
+  label {
+    display: block;
+    margin-top: 1rem;
+  }
+  
+  input, textarea {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  
+  button {
+    margin-top: 1rem;
+    padding: 0.7rem 1rem;
+    background: var(--primary);
+    border: none;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+:root {
+  --primary: #6C63FF;
+  --secondary: #F8F9FA;
+  --accent: #FF6584;
+  --text: #333;
+  --bg: #fff;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  background: var(--secondary);
+  color: var(--text);
+}
+
+h2 {
+  color: var(--primary);
+  text-align: center;
+  margin-top: 20px;
+}
+
+section {
+  padding: 16px;
+}
+
+#story-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+article {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+
+article:hover {
+  transform: translateY(-4px);
+}
+
+article img {
+  width: 100%;
+  border-radius: 8px;
+}
+
+form {
+  max-width: 600px;
+  margin: auto;
+  background: var(--bg);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+form label {
+  font-weight: 600;
+  display: block;
+  margin-top: 12px;
+}
+
+form input, form textarea, form button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1em;
+}
+
+form button {
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+
+form button:hover {
+  background: var(--accent);
+}
+
+#map {
+  height: 400px;
+  margin-top: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@media screen and (max-width: 600px) {
+  #story-list {
+    grid-template-columns: 1fr;
+  }
+
+  form {
+    padding: 16px;
+  }
+}
