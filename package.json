@@ -1,0 +1,31 @@
+{
+    "name": "story-app-spa-custom-css",
+    "version": "1.0.0",
+    "description": "Aplikasi Single-Page Application untuk berbagi cerita dengan lokasi, menggunakan CSS kustom dan Vite.",
+    "private": true,
+    "type": "module",
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "preview": "vite preview"
+    },
+    "author": "Nama Anda",
+    "license": "ISC",
+    "keywords": [
+      "spa",
+      "vanilla-js",
+      "mvp",
+      "story",
+      "map",
+      "dicoding",
+      "vite",
+      "custom-css"
+    ],
+    "devDependencies": {
+      "vite": "^5.2.11"
+    },
+    "dependencies": {
+      "leaflet": "^1.9.4"
+    }
+  }
+  
