@@ -1,8 +1,5 @@
 # StoryVerse (Proyek Akhir) - Aplikasi Berbagi Cerita
 
-![Screenshot Aplikasi StoryVerse](https://placehold.co/800x450/005A9C/FFFFFF?text=StoryVerse+App+Screenshot)
-*<p align="center">Ganti gambar di atas dengan screenshot aplikasi Anda.</p>*
-
 **StoryVerse** adalah sebuah Progressive Web App (PWA) yang memungkinkan pengguna untuk berbagi cerita singkat beserta lokasi kejadiannya. Aplikasi ini dibangun sebagai Single-Page Application (SPA) dengan arsitektur Model-View-Presenter (MVP) dan dilengkapi dengan berbagai fitur modern seperti kemampuan offline, notifikasi, dan instalasi ke perangkat.
 
 Proyek ini merupakan implementasi dari berbagai kriteria submission untuk kelas Dicoding, yang mencakup pengembangan web front-end tingkat lanjut.
