@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/proyek-akhir/',
+  base: '/proyek-akhir/', 
+  server: {
     server: {
-    open: true,
+      host: 'localhost',
+      port: 5175,
   },
   build: {
-    outDir: 'dist',
+    outDir: 'docs', 
+   }
   }
 });
