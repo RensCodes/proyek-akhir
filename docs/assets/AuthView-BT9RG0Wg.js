@@ -1,4 +1,4 @@
-import{U as o}from"./index-C5_RTWmi.js";const l={mainContent:null,presenter:null,setPresenter(e){this.presenter=e},_getLoginFormHTML(){return`
+import{U as o}from"./index-CbKvKYHm.js";const l={mainContent:null,presenter:null,setPresenter(e){this.presenter=e},_getLoginFormHTML(){return`
             <section id="login-page" class="auth-page">
                 <div class="auth-card">
                     <h1 class="auth-title">Login ke StoryVerse</h1>
