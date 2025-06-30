@@ -1,3 +1,4 @@
+// File: service-worker.js
 const CACHE_VERSION = 'v10';
 const CACHE_NAME = `storyverse-cache-${CACHE_VERSION}`;
 
@@ -10,8 +11,28 @@ const APP_SHELL = [
   '/proyek-akhir/icons/icon-512x512.png',
   '/proyek-akhir/js/main.js',
   '/proyek-akhir/js/router.js',
-  '/proyek-akhir/js/HomePresenter.js'
+  '/proyek-akhir/js/HomePresenter.js',
 ];
+
+// Fungsi fallback saat benar-benar offline dan index.html tidak tersedia
+function offlineFallback() {
+  return new Response(`
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8">
+      <title>Offline</title>
+    </head>
+    <body>
+      <h1>Anda sedang offline</h1>
+      <p>Halaman tidak tersedia.</p>
+    </body>
+    </html>
+  `, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' }
+  });
+}
 
 // Instalasi: cache asset utama
 self.addEventListener('install', event => {
@@ -24,72 +45,54 @@ self.addEventListener('install', event => {
   );
 });
 
-// Aktivasi: bersihkan cache lama
+// Aktivasi: hapus cache lama
 self.addEventListener('activate', event => {
   console.log('[SW] Activating...');
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
-      await self.clients.claim();
-    })()
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
-// Fetch handler dengan fallback offline aman
+// Fetch handler
 self.addEventListener('fetch', event => {
   const req = event.request;
 
+  // Untuk permintaan navigasi halaman (misalnya buka langsung ke /beranda)
   if (req.mode === 'navigate') {
     event.respondWith(
       (async () => {
+        const cache = await caches.open(CACHE_NAME);
         try {
-          return await fetch(req);
+          const networkRes = await fetch(req);
+          return networkRes;
         } catch (error) {
-          console.warn('[SW] Offline, fallback ke cache index.html:', error);
-          const cache = await caches.open(CACHE_NAME);
-          const cached = await cache.match('/proyek-akhir/index.html');
-          if (cached) return cached;
-
-          // fallback HTML aman
-          return new Response(`
-            <!DOCTYPE html>
-            <html lang="id">
-            <head><meta charset="UTF-8"><title>Offline</title></head>
-            <body><h1>Anda sedang offline</h1><p>Halaman tidak tersedia.</p></body>
-            </html>
-          `, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html' }
-          });
+          console.warn('[SW] Offline, fallback ke cache:', error);
+          return (await cache.match('/proyek-akhir/index.html')) || offlineFallback();
         }
       })()
     );
-  } else {
-    // Untuk asset seperti CSS, JS, font, dll
-    event.respondWith(
-      fetch(req)
-        .then(res => {
-          if (!res || res.status !== 200 || res.type !== 'basic') return res;
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
-          return res;
-        })
-        .catch(async () => {
-          const cache = await caches.open(CACHE_NAME);
-          const cached = await cache.match(req);
-          if (cached) return cached;
-
-          // fallback kosong yang valid agar tidak error
-          return new Response('', {
-            status: 200,
-            headers: { 'Content-Type': 'text/plain' }
-          });
-        })
-    );
+    return;
   }
+
+  // Untuk asset lainnya (css, js, gambar, dll)
+  event.respondWith(
+    fetch(req)
+      .then(res => {
+        if (!res || res.status !== 200 || res.type !== 'basic') return res;
+        const resClone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+        return res;
+      })
+      .catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        return await cache.match(req) || new Response('', { status: 200 });
+      })
+  );
 });
 
+// Push notification
 self.addEventListener('push', event => {
   const data = event.data?.json() || {};
   const title = data.title || 'Notifikasi Baru';
@@ -99,12 +102,10 @@ self.addEventListener('push', event => {
     badge: '/proyek-akhir/icons/icon-192x192.png',
     data: { url: data.url || '/proyek-akhir/' }
   };
-
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// Klik notifikasi
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const urlToOpen = event.notification?.data?.url || '/proyek-akhir/';
