@@ -1,17 +1,19 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v10';
 const CACHE_NAME = `storyverse-cache-${CACHE_VERSION}`;
-const OFFLINE_URL = '/proyek-akhir/offline.html';
 
 const APP_SHELL = [
   '/proyek-akhir/',
   '/proyek-akhir/index.html',
   '/proyek-akhir/css/style.css',
   '/proyek-akhir/manifest.json',
-  '/proyek-akhir/offline.html',
   '/proyek-akhir/icons/icon-192x192.png',
-  '/proyek-akhir/icons/icon-512x512.png'
+  '/proyek-akhir/icons/icon-512x512.png',
+  '/proyek-akhir/js/main.js',
+  '/proyek-akhir/js/router.js',
+  '/proyek-akhir/js/HomePresenter.js'
 ];
 
+// Instalasi: cache asset utama
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');
   event.waitUntil(
@@ -22,37 +24,70 @@ self.addEventListener('install', event => {
   );
 });
 
+// Aktivasi: bersihkan cache lama
 self.addEventListener('activate', event => {
   console.log('[SW] Activating...');
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-      )
-    ).then(() => self.clients.claim())
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+      await self.clients.claim();
+    })()
   );
 });
 
+// Fetch handler dengan fallback offline aman
 self.addEventListener('fetch', event => {
   const req = event.request;
 
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
+      (async () => {
+        try {
+          return await fetch(req);
+        } catch (error) {
+          console.warn('[SW] Offline, fallback ke cache index.html:', error);
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match('/proyek-akhir/index.html');
+          if (cached) return cached;
 
-  event.respondWith(
-    caches.match(req).then(cached => {
-      return cached || fetch(req).then(res => {
-        return caches.open(CACHE_NAME).then(cache => {
-          if (res.ok) cache.put(req, res.clone());
+          // fallback HTML aman
+          return new Response(`
+            <!DOCTYPE html>
+            <html lang="id">
+            <head><meta charset="UTF-8"><title>Offline</title></head>
+            <body><h1>Anda sedang offline</h1><p>Halaman tidak tersedia.</p></body>
+            </html>
+          `, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' }
+          });
+        }
+      })()
+    );
+  } else {
+    // Untuk asset seperti CSS, JS, font, dll
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          if (!res || res.status !== 200 || res.type !== 'basic') return res;
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
           return res;
-        });
-      });
-    }).catch(() => undefined)
-  );
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          const cached = await cache.match(req);
+          if (cached) return cached;
+
+          // fallback kosong yang valid agar tidak error
+          return new Response('', {
+            status: 200,
+            headers: { 'Content-Type': 'text/plain' }
+          });
+        })
+    );
+  }
 });
 
 self.addEventListener('push', event => {
@@ -73,7 +108,6 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const urlToOpen = event.notification?.data?.url || '/proyek-akhir/';
-
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
@@ -82,8 +116,6 @@ self.addEventListener('notificationclick', event => {
         }
       }
       return self.clients.openWindow ? self.clients.openWindow(urlToOpen) : null;
-    }).catch(err => {
-      console.error('[SW] Error in notification click handler:', err);
     })
   );
 });
