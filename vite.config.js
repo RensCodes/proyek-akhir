@@ -9,14 +9,15 @@ export default defineConfig({
     port: 5178,
   },
   build: {
-    outDir: 'docs',
+    outDir: 'dist',
   },
   plugins: [
     {
       name: 'add-nojekyll',
       writeBundle() {
-        const filePath = join('docs', '.nojekyll');
+        const filePath = join('dist', '.nojekyll');
         writeFileSync(filePath, '');
+        console.log('✔️ .nojekyll file generated in dist/');
       }
     }
   ]

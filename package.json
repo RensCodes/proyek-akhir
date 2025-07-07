@@ -9,7 +9,7 @@
         "build": "vite build",
         "preview": "vite preview",
         "predeploy": "npm run build",
-        "deploy": "gh-pages -d docs --dotfiles"
+        "deploy": "npm run build && gh-pages -d dist"
     },
     "author": "Narendra Ghivari Putra K",
     "license": "ISC",
