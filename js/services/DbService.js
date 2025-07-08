@@ -1,201 +1,221 @@
-// File: js/services/DbService.js
 const DB_NAME = 'storyverse-db';
-const DB_VERSION = 1;
-const STORY_STORE_NAME = 'stories'; 
-const OUTBOX_STORE_NAME = 'outbox-stories'; 
+const DB_VERSION = 12;
+
+const STORIES_CACHE_NAME = 'stories_cache';
+const OUTBOX_STORE_NAME = 'outbox-stories';
+const DELETED_STORE_NAME = 'deleted-story-ids';
+const SAVED_STORE_NAME = 'saved-stories';
 
 const DbService = {
-    _db: null,
+  _db: null,
 
-    async _openDb() {
-        if (this._db) {
-            return this._db;
+  async _openDb() {
+    if (this._db) return this._db;
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onerror = (event) => {
+        console.error('[DB] Error opening DB:', event.target.error);
+        reject(new Error('Gagal membuka IndexedDB'));
+      };
+
+      request.onsuccess = (event) => {
+        this._db = event.target.result;
+        resolve(this._db);
+      };
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+
+        if (!db.objectStoreNames.contains(STORIES_CACHE_NAME)) {
+          db.createObjectStore(STORIES_CACHE_NAME, { keyPath: 'id' });
         }
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
+        if (!db.objectStoreNames.contains(OUTBOX_STORE_NAME)) {
+          db.createObjectStore(OUTBOX_STORE_NAME, { keyPath: 'tempId', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains(DELETED_STORE_NAME)) {
+          db.createObjectStore(DELETED_STORE_NAME, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(SAVED_STORE_NAME)) {
+          db.createObjectStore(SAVED_STORE_NAME, { keyPath: 'id' });
+        }
+      };
+    });
+  },
 
-            request.onerror = (event) => {
-                console.error('[DB] Error opening IndexedDB:', event.target.error);
-                reject(new Error('Gagal membuka database IndexedDB.'));
-            };
+  // ========== OFFLINE CACHE (stories_cache) ==========
+  async putStories(stories) {
+    if (!Array.isArray(stories) || stories.length === 0) return;
 
-            request.onsuccess = (event) => {
-                console.log('[DB] IndexedDB opened successfully.');
-                this._db = event.target.result;
-                resolve(this._db);
-            };
+    const db = await this._openDb();
+    const tx = db.transaction(STORIES_CACHE_NAME, 'readwrite');
+    const store = tx.objectStore(STORIES_CACHE_NAME);
 
-            request.onupgradeneeded = (event) => {
-                console.log('[DB] Upgrading IndexedDB...');
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(STORY_STORE_NAME)) {
-                    db.createObjectStore(STORY_STORE_NAME, { keyPath: 'id' }); 
-                    console.log(`[DB] Object store '${STORY_STORE_NAME}' created.`);
-                }
-                if (!db.objectStoreNames.contains(OUTBOX_STORE_NAME)) {
-                    db.createObjectStore(OUTBOX_STORE_NAME, { autoIncrement: true, keyPath: 'tempId' });
-                    console.log(`[DB] Object store '${OUTBOX_STORE_NAME}' created.`);
-                }
-            };
-        });
-    },
+    await Promise.all(stories.map(story => {
+      if (!story?.id) return Promise.resolve();
+      return new Promise((resolve) => {
+        const req = store.put(story);
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+      });
+    }));
+  },
 
-    async getAllStories() {
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORY_STORE_NAME, 'readonly');
-            const store = transaction.objectStore(STORY_STORE_NAME);
-            const request = store.getAll();
+  async getAllStories() {
+    const db = await this._openDb();
+    const tx = db.transaction(STORIES_CACHE_NAME, 'readonly');
+    const store = tx.objectStore(STORIES_CACHE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            request.onsuccess = () => {
-                console.log('[DB] Berhasil mengambil semua cerita dari IndexedDB:', request.result);
-                resolve(request.result || []); 
-            };
-            request.onerror = (event) => {
-                console.error('[DB] Error mengambil cerita dari IndexedDB:', event.target.error);
-                reject(new Error('Gagal mengambil cerita dari database.'));
-            };
-        });
-    },
+  async deleteStory(id) {
+    const db = await this._openDb();
+    const tx = db.transaction(STORIES_CACHE_NAME, 'readwrite');
+    const store = tx.objectStore(STORIES_CACHE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-    async putStories(stories) { 
-        if (!stories || stories.length === 0) return Promise.resolve();
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORY_STORE_NAME, 'readwrite');
-            const store = transaction.objectStore(STORY_STORE_NAME);
-            
-            let completedOperations = 0;
-            stories.forEach(story => {
-                if (!story || typeof story.id === 'undefined') {
-                    console.warn('[DB] Cerita tanpa ID valid dilewati:', story);
-                    completedOperations++; 
-                    if (completedOperations === stories.length) {
-                        resolve();
-                    }
-                    return;
-                }
-                const request = store.put(story);
-                request.onsuccess = () => {
-                    completedOperations++;
-                    if (completedOperations === stories.length) {
-                        console.log('[DB] Semua cerita berhasil disimpan/diperbarui di IndexedDB.');
-                        resolve();
-                    }
-                };
-                request.onerror = (event) => {
-                    completedOperations++; 
-                    console.error(`[DB] Error menyimpan cerita ID ${story.id} ke IndexedDB:`, event.target.error);
-                    if (completedOperations === stories.length) {
-                        console.warn('[DB] Beberapa cerita mungkin gagal disimpan.');
-                        resolve(); 
-                    }
-                };
-            });
+  async clearAllStories() {
+    const db = await this._openDb();
+    const tx = db.transaction(STORIES_CACHE_NAME, 'readwrite');
+    const store = tx.objectStore(STORIES_CACHE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            transaction.oncomplete = () => {
-            };
-            transaction.onerror = (event) => {
-                console.error('[DB] Error transaksi saat menyimpan cerita:', event.target.error);
-                reject(new Error('Gagal menyimpan cerita ke database.'));
-            };
-        });
-    },
-    
-    async getStoryById(id) {
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORY_STORE_NAME, 'readonly');
-            const store = transaction.objectStore(STORY_STORE_NAME);
-            const request = store.get(id);
+  // ========== DELETED ==========
+  async markStoryAsDeleted(id) {
+    if (!id) return;
+    const db = await this._openDb();
+    const tx = db.transaction(DELETED_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(DELETED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.put({ id });
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            request.onsuccess = () => {
-                resolve(request.result);
-            };
-            request.onerror = (event) => {
-                console.error(`[DB] Error mengambil cerita ID ${id}:`, event.target.error);
-                reject(new Error('Gagal mengambil cerita dari database.'));
-            };
-        });
-    },
+  async getDeletedStoryIds() {
+    const db = await this._openDb();
+    const tx = db.transaction(DELETED_STORE_NAME, 'readonly');
+    const store = tx.objectStore(DELETED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const ids = (req.result || []).map(entry => entry.id).filter(Boolean);
+        resolve(ids);
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-    async deleteStory(id) {
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(STORY_STORE_NAME, 'readwrite');
-            const store = transaction.objectStore(STORY_STORE_NAME);
-            const request = store.delete(id);
+  // ========== OUTBOX ==========
+  async addStoryToOutbox(storyData) {
+    const db = await this._openDb();
+    const tx = db.transaction(OUTBOX_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OUTBOX_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const data = {
+        ...storyData,
+        tempId: storyData.tempId || `temp-${Date.now()}-${Math.random()}`
+      };
+      const req = store.put(data);
+      req.onsuccess = () => resolve(data.tempId);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            request.onsuccess = () => {
-                console.log(`[DB] Cerita ID ${id} berhasil dihapus dari IndexedDB.`);
-                resolve();
-            };
-            request.onerror = (event) => {
-                console.error(`[DB] Error menghapus cerita ID ${id}:`, event.target.error);
-                reject(new Error('Gagal menghapus cerita dari database.'));
-            };
-        });
-    },
+  async getAllOutboxStories() {
+    const db = await this._openDb();
+    const tx = db.transaction(OUTBOX_STORE_NAME, 'readonly');
+    const store = tx.objectStore(OUTBOX_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-    async addStoryToOutbox(storyData) { 
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(OUTBOX_STORE_NAME, 'readwrite');
-            const store = transaction.objectStore(OUTBOX_STORE_NAME);
+  async deleteStoryFromOutbox(tempId) {
+    const db = await this._openDb();
+    const tx = db.transaction(OUTBOX_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(OUTBOX_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.delete(tempId);
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            const dataToStore = { ...storyData };
-            if (!dataToStore.tempId) { 
-                dataToStore.tempId = `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            }
+  // ========== SAVED STORIES ==========
+  async saveStoryToSaved(story) {
+    const db = await this._openDb();
+    const tx = db.transaction(SAVED_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(SAVED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.put(story);
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            const request = store.add(dataToStore);
+  async getAllSavedStories() {
+    const db = await this._openDb();
+    const tx = db.transaction(SAVED_STORE_NAME, 'readonly');
+    const store = tx.objectStore(SAVED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            request.onsuccess = (event) => {
-                console.log('[DB] Cerita berhasil ditambahkan ke outbox IndexedDB:', event.target.result, dataToStore);
-                resolve(event.target.result); 
-            };
-            request.onerror = (event) => {
-                console.error('[DB] Error menambahkan cerita ke outbox:', event.target.error);
-                reject(new Error('Gagal menyimpan cerita ke outbox.'));
-            };
-        });
-    },
+  async deleteSavedStory(id) {
+    const db = await this._openDb();
+    const tx = db.transaction(SAVED_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(SAVED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-    async getAllOutboxStories() {
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(OUTBOX_STORE_NAME, 'readonly');
-            const store = transaction.objectStore(OUTBOX_STORE_NAME);
-            const request = store.getAll();
+  async isStorySaved(id) {
+    const db = await this._openDb();
+    const tx = db.transaction(SAVED_STORE_NAME, 'readonly');
+    const store = tx.objectStore(SAVED_STORE_NAME);
+    return new Promise((resolve, reject) => {
+      const req = store.get(id);
+      req.onsuccess = () => resolve(!!req.result);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
 
-            request.onsuccess = () => {
-                console.log('[DB] Berhasil mengambil semua cerita dari outbox IndexedDB:', request.result);
-                resolve(request.result || []);
-            };
-            request.onerror = (event) => {
-                console.error('[DB] Error mengambil cerita dari outbox:', event.target.error);
-                reject(new Error('Gagal mengambil cerita dari outbox.'));
-            };
-        });
-    },
 
-    async deleteStoryFromOutbox(tempId) {
-        const db = await this._openDb();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(OUTBOX_STORE_NAME, 'readwrite');
-            const store = transaction.objectStore(OUTBOX_STORE_NAME);
-            const request = store.delete(tempId);
-
-            request.onsuccess = () => {
-                console.log(`[DB] Cerita dengan tempId ${tempId} berhasil dihapus dari outbox.`);
-                resolve();
-            };
-            request.onerror = (event) => {
-                console.error(`[DB] Error menghapus cerita dari outbox (tempId: ${tempId}):`, event.target.error);
-                reject(new Error('Gagal menghapus cerita dari outbox.'));
-            };
-        });
-    }
+async clearSavedStories() {
+  const db = await this._openDb();
+  const tx = db.transaction(SAVED_STORE_NAME, 'readwrite');
+  const store = tx.objectStore(SAVED_STORE_NAME);
+  return new Promise((resolve, reject) => {
+    const req = store.clear();
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
 };
 
 export default DbService;
