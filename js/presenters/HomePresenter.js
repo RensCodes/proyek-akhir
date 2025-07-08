@@ -1,71 +1,115 @@
 function createHomePresenter(storyModel, authModel, homeView, router, mapService) {
-    const presenter = {
-        _storyModel: storyModel,
-        _authModel: authModel,
-        _homeView: homeView,
-        _router: router,
-        _mapService: mapService,
+  const presenter = {
+    _storyModel: storyModel,
+    _authModel: authModel,
+    _homeView: homeView,
+    _router: router,
+    _mapService: mapService,
 
-        async showStories() {
-            this._homeView.renderLoading();
-            try {
-                const stories = await this._storyModel.fetchStories();
-                const userName = this._authModel.getCurrentUserName();
-                this._homeView.renderStories(stories, userName);
-                
-                const mapContainerId = this._homeView.getMapContainerId();
-                const storiesWithLocation = stories.filter(s => s.lat && s.lon);
-                if (document.getElementById(mapContainerId) && storiesWithLocation.length > 0) {
-                    this._mapService.initDisplayMap(mapContainerId, storiesWithLocation);
-                } else if (document.getElementById(mapContainerId)) {
-                    const mapEl = document.getElementById(mapContainerId);
-                    if(mapEl) mapEl.innerHTML = '<p class="no-map-data-message">Peta akan muncul di sini jika ada cerita dengan data lokasi.</p>';
-                }
+    async showStories() {
+      this._homeView.renderLoading();
 
-            } catch (error) {
-                console.error("HomePresenter.showStories error:", error);
-                this._homeView.renderError(error.message || "Gagal memuat cerita. Coba lagi nanti.");
-                if (error.message.toLowerCase().includes("token") || error.message.toLowerCase().includes("sesi") || error.status === 401) {
-                    this._authModel.logout();
-                    this._router.navigateTo('login');
-                }
-            }
-        },
+      let stories = [];
+      let fromOffline = false;
 
-        handleViewOnMap({ lat, lon, title }) {
-            console.log(`HomePresenter: Menampilkan lokasi untuk ${title} di peta: ${lat}, ${lon}`);
-            if (this._mapService && typeof this._mapService.panToLocation === 'function') {
-                this._mapService.panToLocation(lat, lon);
-                const mapElement = document.getElementById(this._homeView.getMapContainerId());
-                if (mapElement) {
-                    mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            } else {
-                console.warn("MapService atau panToLocation tidak tersedia di HomePresenter.");
-            }
-        },
-        
-        navigateToAddStoryPage() {
-            this._router.navigateTo('add-story');
-        },
-
-        destroy() {
-            if (this._homeView && typeof this._homeView.destroy === 'function') {
-                this._homeView.destroy();
-            }
-            if (this._mapService && typeof this._mapService.destroyDisplayMap === 'function') {
-                this._mapService.destroyDisplayMap();
-            }
-            this._storyModel = null;
-            this._authModel = null;
-            this._homeView = null;
-            this._router = null;
-            this._mapService = null;
-            console.log("HomePresenter instance (dari factory) dihancurkan.");
+      try {
+        const forceRefresh = window._storyDataDirty || false;
+        stories = await this._storyModel.fetchStories(forceRefresh);
+        window._storyDataDirty = false;
+      } catch (error) {
+        console.warn("Gagal fetch online, mencoba offline DB:", error);
+        try {
+          stories = await this._storyModel.getAllStoriesFromDb();
+          fromOffline = true;
+        } catch (offlineError) {
+          console.error("Gagal ambil dari IndexedDB:", offlineError);
+          this._homeView.renderError("Gagal memuat cerita, dan tidak ada data offline.");
+          return;
         }
-    };
-    homeView.setPresenter(presenter);
-    return presenter;
+      }
+
+      const userName = this._authModel.getCurrentUserName?.() || 'Pengguna';
+      const safeStories = Array.isArray(stories) ? stories : [];
+
+      this._homeView.renderStories(safeStories, userName);
+
+      const mapContainerId = this._homeView.getMapContainerId?.();
+      const storiesWithLocation = safeStories.filter(s => s.lat && s.lon);
+      const mapEl = document.getElementById(mapContainerId);
+
+      if (mapEl) {
+        if (storiesWithLocation.length > 0) {
+          this._mapService.initDisplayMap(mapContainerId, storiesWithLocation);
+        } else {
+          mapEl.innerHTML = '<p class="no-map-data-message">Peta akan muncul di sini jika ada cerita dengan data lokasi.</p>';
+        }
+      }
+
+      if (fromOffline) {
+        console.warn('[HomePresenter] Cerita ditampilkan dari cache offline.');
+      }
+    },
+
+    async handleDeleteStory(storyId) {
+      try {
+        await this._storyModel.deleteStoryFromDb(storyId);
+        window._storyDataDirty = true;
+        await this.showStories();
+      } catch (error) {
+        console.error("Gagal menghapus cerita dari beranda:", error);
+        alert("Gagal menghapus cerita dari beranda.");
+      }
+    },
+
+    handleViewOnMap({ lat, lon, title }) {
+      console.log(`HomePresenter: Menampilkan lokasi untuk ${title} di peta: ${lat}, ${lon}`);
+      if (this._mapService?.panToLocation) {
+        this._mapService.panToLocation(lat, lon);
+        const mapElement = document.getElementById(this._homeView.getMapContainerId());
+        mapElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+
+    navigateToAddStoryPage() {
+      this._router.navigateTo('add-story');
+    },
+
+    async handleSaveStory(storyId) {
+      try {
+        const isAlreadySaved = await import('../services/DbService.js').then(mod => mod.default.isStorySaved(storyId));
+        if (isAlreadySaved) {
+          alert('Cerita ini sudah tersimpan sebelumnya.');
+          return;
+        }
+
+        const story = this._storyModel._storiesCache?.find(s => s.id === storyId);
+        if (!story) {
+          alert('Cerita tidak ditemukan atau belum dimuat.');
+          return;
+        }
+
+        await import('../services/DbService.js').then(mod => mod.default.saveStoryToSaved(story));
+        alert('Cerita berhasil disimpan ke daftar tersimpan.');
+      } catch (error) {
+        console.error('Gagal menyimpan cerita:', error);
+        alert('Terjadi kesalahan saat menyimpan cerita.');
+      }
+    },
+
+    destroy() {
+      this._homeView?.destroy?.();
+      this._mapService?.destroyDisplayMap?.();
+      this._storyModel = null;
+      this._authModel = null;
+      this._homeView = null;
+      this._router = null;
+      this._mapService = null;
+      console.log("HomePresenter instance dihancurkan.");
+    }
+  };
+
+  homeView.setPresenter(presenter);
+  return presenter;
 }
 
 export default createHomePresenter;
