@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StoryVerse App</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="/proyek-akhir/assets/manifest-DJve4K0Y.json" />
+  <meta name="theme-color" content="#6A0DAD" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script type="module" crossorigin src="/proyek-akhir/assets/index-CiRWjb8D.js"></script>
+  <link rel="stylesheet" crossorigin href="/proyek-akhir/assets/index-BGtRy8sg.css">
+</head>
+<body>
+  <header id="app-header">
+    <nav class="container nav-container">
+      <a href="#" class="nav-brand" data-route="home">
+        <i class="fas fa-book-reader"></i> StoryVerse
+      </a>
+      <ul id="nav-links-container" class="nav-links"></ul>
+    </nav>
+  </header>
+
+  <main id="main-content" class="container main-container" tabindex="-1"></main>
+
+    
+
+  <footer id="app-footer">
+    <p>&copy; <span id="currentYear"></span> StoryVerse. Dibuat dengan <i class="fas fa-heart icon-heart"></i>.</p>
+  </footer>
+
+  <div id="messageModal" class="modal">
+    <div class="modal-content">
+      <h3 id="messageModalTitle" class="modal-title">Pemberitahuan</h3>
+      <p id="messageModalText" class="modal-text"></p>
+      <button id="messageModalClose" class="btn btn-primary modal-close-btn">Tutup</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</body>
+</html>
