@@ -55,4 +55,5 @@ const AuthModel = {
         return TokenService.getToken();
     }
 };
+
 export default AuthModel;
