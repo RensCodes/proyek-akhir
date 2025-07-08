@@ -28,17 +28,33 @@ const StoryApiService = {
     },
 
     async getStories(token) {
-        if (!token) return Promise.reject(new Error('Token tidak tersedia untuk mengambil cerita.'));
-        const response = await fetch(`${Config.API_BASE_URL}/stories`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}`, },
-        });
-        const responseJson = await response.json();
-        if (response.status >= 400 || responseJson.error) {
-            throw new Error(responseJson.message || 'Gagal mengambil cerita');
-        }
-        return responseJson.listStory;
-    },
+  if (!token) return Promise.reject(new Error('Token tidak tersedia untuk mengambil cerita.'));
+
+  const response = await fetch(`${Config.API_BASE_URL}/stories`, {
+    method: 'GET',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  const contentType = response.headers.get('Content-Type');
+  const text = await response.text();
+
+  if (!response.ok) {
+    let errorMessage = `Gagal mengambil cerita (${response.status})`;
+    try {
+      const errData = JSON.parse(text);
+      errorMessage = errData.message || errorMessage;
+    } catch (e) {
+    }
+    throw new Error(errorMessage);
+  }
+
+  if (!text || !contentType?.includes('application/json')) {
+    throw new Error('Response kosong atau bukan JSON.');
+  }
+
+  const data = JSON.parse(text);
+  return data.listStory || [];
+},
 
     async addStory(token, storyFormData) {
         if (!token) return Promise.reject(new Error('Token tidak tersedia untuk menambah cerita.'));
