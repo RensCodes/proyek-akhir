@@ -191,6 +191,133 @@ img {
     width: 100%;
 }
 
+/* Push Notification Controls */
+#push-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+#subscribeBtn, #unsubscribeBtn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 0.3rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+#subscribePushBtn {
+  background-color: #28a745;
+  color: #fff;
+}
+#subscribePushBtn:hover {
+  background-color: #218838;
+}
+
+#unsubscribePushBtn {
+  background-color: #dc3545;
+  color: #fff;
+}
+#unsubscribePushBtn:hover {
+  background-color: #c82333;
+}
+
+
+/* Container card agar bisa 3 sejajar */
+.story-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+/* Ukuran dan layout card */
+.story-card {
+  width: 300px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.story-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+
+.story-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.story-card-body {
+  padding: 1rem;
+  flex-grow: 1;
+}
+
+.story-card-body p {
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.story-card-body p strong {
+  color: #005A9C;
+}
+
+.story-card-footer {
+  padding: 0.75rem;
+  border-top: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+}
+
+/* Tombol besar untuk "Lihat di Peta" */
+.btn-map {
+  display: block;
+  width: 100%;
+  background-color: #6c757d;
+  color: #ffffff;
+  border: none;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+.btn-map:hover {
+  background-color: #545b62;
+}
+
+/* Grup tombol bawah */
+.btn-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.btn-save-story,
+.btn-favorite {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  border-radius: 0.3rem;
+  border: 1px solid #ccc;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+.btn-save-story:hover,
+.btn-favorite:hover {
+  background-color: #f1f3f5;
+}
+
 
 .form-group {
     margin-bottom: 1rem;
