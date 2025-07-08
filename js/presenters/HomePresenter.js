@@ -1,82 +1,115 @@
-// File: presenter/SavedStoriesPresenter.js
-
-function createSavedStoriesPresenter(storyModel, savedStoriesView, router, utilsService) {
-  const MAX_ITEMS_PER_LOAD = 6;
-
-  let _offset = 0;
-  let _allStories = [];
-
+function createHomePresenter(storyModel, authModel, homeView, router, mapService) {
   const presenter = {
     _storyModel: storyModel,
-    _view: savedStoriesView,
+    _authModel: authModel,
+    _homeView: homeView,
     _router: router,
-    _utils: utilsService,
+    _mapService: mapService,
 
-    async showSavedStories(initial = true) {
-      this._view.renderLoading();
+    async showStories() {
+      this._homeView.renderLoading();
+
+      let stories = [];
+      let fromOffline = false;
+
       try {
-        if (initial) {
-          _offset = 0;
-          _allStories = await this._storyModel.getAllSavedStories(); // hanya dari saved-stories
-          _allStories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        }
-
-        const storiesToShow = _allStories.slice(0, _offset + MAX_ITEMS_PER_LOAD);
-        const hasMore = _allStories.length > storiesToShow.length;
-        _offset = storiesToShow.length;
-
-        this._view.renderSavedStories(storiesToShow, hasMore);
+        const forceRefresh = window._storyDataDirty || false;
+        stories = await this._storyModel.fetchStories(forceRefresh);
+        window._storyDataDirty = false;
       } catch (error) {
-        console.error("SavedStoriesPresenter.showSavedStories error:", error);
-        this._view.renderError(error.message || "Gagal memuat cerita dari database lokal.");
+        console.warn("Gagal fetch online, mencoba offline DB:", error);
+        try {
+          stories = await this._storyModel.getAllStoriesFromDb();
+          fromOffline = true;
+        } catch (offlineError) {
+          console.error("Gagal ambil dari IndexedDB:", offlineError);
+          this._homeView.renderError("Gagal memuat cerita, dan tidak ada data offline.");
+          return;
+        }
+      }
+
+      const userName = this._authModel.getCurrentUserName?.() || 'Pengguna';
+      const safeStories = Array.isArray(stories) ? stories : [];
+
+      this._homeView.renderStories(safeStories, userName);
+
+      const mapContainerId = this._homeView.getMapContainerId?.();
+      const storiesWithLocation = safeStories.filter(s => s.lat && s.lon);
+      const mapEl = document.getElementById(mapContainerId);
+
+      if (mapEl) {
+        if (storiesWithLocation.length > 0) {
+          this._mapService.initDisplayMap(mapContainerId, storiesWithLocation);
+        } else {
+          mapEl.innerHTML = '<p class="no-map-data-message">Peta akan muncul di sini jika ada cerita dengan data lokasi.</p>';
+        }
+      }
+
+      if (fromOffline) {
+        console.warn('[HomePresenter] Cerita ditampilkan dari cache offline.');
       }
     },
 
     async handleDeleteStory(storyId) {
       try {
-        await this._storyModel.deleteSavedStory(storyId);
-
-        // Hapus dari cache internal agar tidak muncul lagi
-        _allStories = _allStories.filter(story => story.id !== storyId);
-        _offset = Math.min(_offset, _allStories.length);
-
-        this._utils.showMessage("Sukses", "Cerita berhasil dihapus dari favorit.");
-        this.showSavedStories(false); // tanpa reset ulang
+        await this._storyModel.deleteStoryFromDb(storyId);
+        window._storyDataDirty = true;
+        await this.showStories();
       } catch (error) {
-        console.error("handleDeleteStory error:", error);
-        this._utils.showMessage("Error", "Gagal menghapus cerita dari favorit.", true);
+        console.error("Gagal menghapus cerita dari beranda:", error);
+        alert("Gagal menghapus cerita dari beranda.");
       }
     },
 
-    async handleDeleteAllStories() {
+    handleViewOnMap({ lat, lon, title }) {
+      console.log(`HomePresenter: Menampilkan lokasi untuk ${title} di peta: ${lat}, ${lon}`);
+      if (this._mapService?.panToLocation) {
+        this._mapService.panToLocation(lat, lon);
+        const mapElement = document.getElementById(this._homeView.getMapContainerId());
+        mapElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    },
+
+    navigateToAddStoryPage() {
+      this._router.navigateTo('add-story');
+    },
+
+    async handleSaveStory(storyId) {
       try {
-        await this._storyModel.clearAllSavedStories();
-        _allStories = [];
-        _offset = 0;
-        this._utils.showMessage("Sukses", "Semua cerita favorit berhasil dihapus.");
-        this.showSavedStories(false);
-      } catch (error) {
-        console.error("handleDeleteAllStories error:", error);
-        this._utils.showMessage("Error", "Gagal menghapus semua cerita favorit.", true);
-      }
-    },
+        const isAlreadySaved = await import('../services/DbService.js').then(mod => mod.default.isStorySaved(storyId));
+        if (isAlreadySaved) {
+          alert('Cerita ini sudah tersimpan sebelumnya.');
+          return;
+        }
 
-    loadMore() {
-      this.showSavedStories(false);
+        const story = this._storyModel._storiesCache?.find(s => s.id === storyId);
+        if (!story) {
+          alert('Cerita tidak ditemukan atau belum dimuat.');
+          return;
+        }
+
+        await import('../services/DbService.js').then(mod => mod.default.saveStoryToSaved(story));
+        alert('Cerita berhasil disimpan ke daftar tersimpan.');
+      } catch (error) {
+        console.error('Gagal menyimpan cerita:', error);
+        alert('Terjadi kesalahan saat menyimpan cerita.');
+      }
     },
 
     destroy() {
-      this._view?.destroy?.();
+      this._homeView?.destroy?.();
+      this._mapService?.destroyDisplayMap?.();
       this._storyModel = null;
-      this._view = null;
+      this._authModel = null;
+      this._homeView = null;
       this._router = null;
-      this._utils = null;
-      console.log("SavedStoriesPresenter instance dihancurkan.");
+      this._mapService = null;
+      console.log("HomePresenter instance dihancurkan.");
     }
   };
 
-  savedStoriesView.setPresenter(presenter);
+  homeView.setPresenter(presenter);
   return presenter;
 }
 
-export default createSavedStoriesPresenter;
+export default createHomePresenter;
