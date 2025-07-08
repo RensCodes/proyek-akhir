@@ -1,4 +1,4 @@
-import{U as s}from"./index-BKrFl1gL.js";const p={mainContent:null,presenter:null,setPresenter(e){this.presenter=e},renderLoading(){this.mainContent&&s.showLoadingSpinner(this.mainContent,"Memuat cerita favorit...")},renderSavedStories(e,a=!1){if(console.log("[SavedStoriesView] renderSavedStories dipanggil dengan",e.length,"cerita"),!this.mainContent)return;s.hideLoadingSpinner(this.mainContent),this.mainContent.innerHTML=`
+import{U as s}from"./index-CiRWjb8D.js";const p={mainContent:null,presenter:null,setPresenter(e){this.presenter=e},renderLoading(){this.mainContent&&s.showLoadingSpinner(this.mainContent,"Memuat cerita favorit...")},renderSavedStories(e,a=!1){if(console.log("[SavedStoriesView] renderSavedStories dipanggil dengan",e.length,"cerita"),!this.mainContent)return;s.hideLoadingSpinner(this.mainContent),this.mainContent.innerHTML=`
       <section class="page-section animate-fade-in">
         <div class="page-header">
           <h1 class="page-title">Cerita Favorit Anda</h1>
